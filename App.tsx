@@ -552,212 +552,192 @@ const SecurityOtpModal: React.FC<{ otp: string; actionType: SecurityActionType; 
                  </form>
              </div>
         </div>
-    );
+      );
+};
+      
+    // ... AuthScreen kept as is ...
+const AuthScreen: React.FC<{ onLogin: (u: User) => void; onRestore: (d: any) => void; language: 'ta' | 'en'; t: any }> = ({ onLogin, onRestore, language, t }) => {
+  const [mode, setMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showNotFoundModal, setShowNotFoundModal] = useState(false);
+
+  // ஆன்லைன் ரிஜிஸ்டர் (Supabase Register)
+  const handleRegisterAttempt = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name || !email || !password || !mobile) return;
+
+    try {
+      // 1. மொபைல் அல்லது ஈமெயில் ஏற்கனவே இருக்கிறதா எனப் பார்த்தல்
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('*')
+        .or(`email.eq.${email},mobile.eq.${mobile}`)
+        .single();
+
+      if (existingUser) {
+        alert(language === 'ta' ? 'இந்த விவரங்களுடன் ஏற்கனவே ஒரு பயனர் உள்ளார்.' : 'User already exists with this email or mobile.');
+        return;
+      }
+
+      // 2. புதிய கணக்கை உருவாக்குதல் (OTP தேவையில்லை)
+      const { error } = await supabase.from('users').insert([
+        { 
+          email: email, 
+          mobile: mobile, 
+          password: password, 
+          business_name: name 
+        }
+      ]);
+
+      if (error) {
+        alert('Error: ' + error.message);
+      } else {
+        alert(language === 'ta' ? 'கணக்கு வெற்றிகரமாக உருவாக்கப்பட்டது!' : 'Account created successfully!');
+        // உடனே லாகின் செய்யவும்
+        const newUser: User = { email, name, mobile, isLoggedIn: true, password };
+        onLogin(newUser);
+      }
+    } catch (err) {
+      alert('Network Error. Please try again.');
+    }
+  };
+
+  // ஆன்லைன் லாகின் (Supabase Login)
+  const handleLoginAttempt = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .or(`email.eq.${email},mobile.eq.${email}`) // ஈமெயில் அல்லது மொபைல் போட்டு லாகின் செய்யலாம்
+        .eq('password', password)
+        .single();
+
+      if (data) {
+        const appUser: User = {
+          email: data.email,
+          name: data.business_name, // டேட்டாபேஸ் பெயர் மாறலாம்
+          mobile: data.mobile,
+          isLoggedIn: true,
+          password: data.password
+        };
+        onLogin(appUser);
+      } else {
+        // கணக்கு இல்லை என்றால் மட்டும் பழைய லோக்கல் ஸ்டோரேஜை செக் செய்யவும் (பழைய யூசர்களுக்காக)
+        const localUsers = JSON.parse(localStorage.getItem('viyabaari_users') || '[]');
+        const localUser = localUsers.find((u: any) => (u.email === email || u.mobile === email) && u.password === password);
+        
+        if (localUser) {
+           onLogin({ ...localUser, isLoggedIn: true });
+        } else {
+           setShowNotFoundModal(true);
+        }
+      }
+    } catch (err) {
+      alert('Login Error. Check internet connection.');
+    }
+  };
+
+  const handleSkipLogin = () => {
+    const guestUser: User = {
+      email: 'guest@viyabaari.local',
+      name: 'Guest User',
+      mobile: '0000000000',
+      isLoggedIn: true,
+      password: ''
+    };
+    onLogin(guestUser);
+  };
+
+  const handleFileRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const data = JSON.parse(event.target?.result as string);
+          onRestore(data);
+        } catch (err) {
+          alert('Error parsing backup file');
+        }
+      };
+      reader.readAsText(file);
+    }
+    e.target.value = '';
+  };
+
+  return (
+    <div className="min-h-screen bg-indigo-600 flex flex-col items-center justify-center p-6 text-white relative">
+      <h1 className="text-4xl font-black tamil-font mb-2 text-center">{t.appName}</h1>
+      <p className="text-indigo-200 mb-8 text-sm opacity-80">{t.syncNotice}</p>
+
+      <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 text-gray-800 shadow-2xl">
+        {mode === 'INPUT' && (
+           /* ... login form UI ... */
+           <form onSubmit={handleLoginAttempt} className="space-y-6">
+              <div className="text-center">
+                 <h3 className="font-bold text-lg text-gray-800">{t.login}</h3>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Mobile / Email</label>
+                <input type="text" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-gray-50 p-4 pl-4 rounded-2xl font-bold text-gray-700 outline-none focus:ring-2 focus:ring-indigo-500 transition-all" required />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Password</label>
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-gray-50 p-4 pl-4 rounded-2xl font-bold text-gray-700 outline-none focus:ring-2 focus:ring-indigo-500 transition-all" required />
+              </div>
+              <button type="submit" className="w-full bg-indigo-600 text-white p-4 rounded-2xl font-black shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all">{t.login}</button>
+              <div className="text-center mt-4">
+                 <button type="button" onClick={() => setMode('REGISTER')} className="text-indigo-600 font-bold text-sm">Create New Account</button>
+              </div>
+           </form>
+        )}
+
+        {mode === 'REGISTER' && (
+          <form onSubmit={handleRegisterAttempt} className="space-y-4">
+             <div className="text-center mb-4"><h3 className="font-bold text-lg text-gray-800">{t.signUp}</h3></div>
+             <input type="text" placeholder="Business Name" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl font-bold text-gray-700 outline-none" required />
+             <input type="text" placeholder="Mobile" value={mobile} onChange={(e) => setMobile(e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl font-bold text-gray-700 outline-none" required />
+             <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl font-bold text-gray-700 outline-none" required />
+             <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl font-bold text-gray-700 outline-none" required />
+             
+             <button type="submit" className="w-full bg-green-600 text-white p-3 rounded-xl font-bold shadow-lg hover:bg-green-700 transition-all">{t.signUp}</button>
+             <button type="button" onClick={() => setMode('INPUT')} className="w-full text-gray-400 text-sm font-bold mt-2">Cancel</button>
+          </form>
+        )}
+      </div>
+      
+      {/* Skip Login & Restore Buttons */}
+      <div className="mt-8 flex flex-col items-center gap-4">
+        <button onClick={handleSkipLogin} className="text-indigo-200 font-bold text-sm hover:text-white transition-colors">Skip Login (Guest Mode)</button>
+        <div className="relative">
+           <input type="file" id="restoreFile" onChange={handleFileRestore} className="hidden" accept=".json" />
+           <label htmlFor="restoreFile" className="text-indigo-300 text-xs cursor-pointer hover:text-white border-b border-indigo-300 pb-0.5">Restore from Backup File</label>
+        </div>
+      </div>
+
+       {/* User Not Found Modal */}
+       {showNotFoundModal && (
+        <div className="absolute inset-0 bg-black/60 flex items-center justify-center p-6 backdrop-blur-sm z-50">
+          <div className="bg-white rounded-[2rem] p-6 w-full max-w-sm text-center shadow-2xl">
+            <h3 className="text-xl font-black text-gray-800 mb-2">{t.accountNotFound}</h3>
+            <p className="text-gray-500 mb-6 text-sm">Check your details or create a new account.</p>
+            <div className="flex gap-3">
+               <button onClick={() => setShowNotFoundModal(false)} className="flex-1 py-3 bg-gray-100 text-gray-700 font-bold rounded-xl">Try Again</button>
+               <button onClick={() => { setShowNotFoundModal(false); setMode('REGISTER'); }} className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl">Create Account</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
-// ... AuthScreen kept as is ...
-const AuthScreen: React.FC<{ onLogin: (u: User) => void; onRestore: (d: any) => void; language: 'ta' | 'en'; t: any }> = ({ onLogin, onRestore, language, t }) => {
-    // ... [Content of AuthScreen] ...
-    const [mode, setMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
-    const [step, setStep] = useState<'INPUT' | 'OTP'>('INPUT');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [name, setName] = useState('');
-    const [mobile, setMobile] = useState('');
-    const [loginId, setLoginId] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
-    const [generatedOtp, setGeneratedOtp] = useState('');
-    const [inputOtp, setInputOtp] = useState('');
-    const [otpNotification, setOtpNotification] = useState<string | null>(null);
-    const [showNotFoundModal, setShowNotFoundModal] = useState(false);
-  
-    const handleRegisterAttempt = (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!name || !email || !password || !mobile) return;
-      const users = JSON.parse(localStorage.getItem('viyabaari_users') || '[]');
-      if (users.find((u: any) => u.email === email)) {
-          alert(language === 'ta' ? 'இந்த பயனர் ஏற்கனவே உள்ளார்' : 'User already exists');
-          return;
-      }
-      const otp = Math.floor(1000 + Math.random() * 9000).toString();
-      setGeneratedOtp(otp);
-      setOtpNotification(otp); // This shows the green box in UI
-      setStep('OTP');
-      
-      // Removed the alert() call which was causing issues
-    };
-  
-    const handleVerifyOtp = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (inputOtp === generatedOtp) {
-            const newUser: User = { email, name, mobile, isLoggedIn: true, password };
-            const users = JSON.parse(localStorage.getItem('viyabaari_users') || '[]');
-            users.push(newUser);
-            localStorage.setItem('viyabaari_users', JSON.stringify(users));
-            onLogin(newUser);
-        } else {
-            alert(t.invalidOtp);
-        }
-    };
-    
-    const handleCancelOtp = () => {
-        setStep('INPUT');
-        setOtpNotification(null);
-        setInputOtp('');
-    };
-  
-    const handleLoginAttempt = (e: React.FormEvent) => {
-        e.preventDefault();
-        const users = JSON.parse(localStorage.getItem('viyabaari_users') || '[]');
-        const user = users.find((u: any) => (u.email === loginId || u.mobile === loginId) && u.password === password);
-        if (user) {
-          onLogin({ ...user, isLoggedIn: true });
-        } else {
-          const userExists = users.some((u: any) => u.email === loginId || u.mobile === loginId);
-          if (!userExists) {
-              setShowNotFoundModal(true);
-          } else {
-              alert(t.loginFailed);
-          }
-        }
-    };
-
-    const handleSkipLogin = () => {
-        const guestUser: User = {
-            email: 'guest@viyabaari.local',
-            name: 'Guest User',
-            mobile: '0000000000',
-            isLoggedIn: true,
-            password: ''
-        };
-        onLogin(guestUser);
-    };
-  
-    const switchToRegister = () => {
-        setShowNotFoundModal(false);
-        setMode('REGISTER');
-    };
-  
-    const handleFileRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          try {
-            const data = JSON.parse(event.target?.result as string);
-            onRestore(data);
-          } catch (err) {
-            alert("Error parsing backup file");
-          }
-        };
-        reader.readAsText(file);
-      }
-      // Reset input value so same file can be selected again
-      e.target.value = '';
-    };
-  
-    return (
-      <div className="min-h-screen bg-indigo-600 flex flex-col items-center justify-center p-6 text-white relative">
-         <h1 className="text-4xl font-black tamil-font mb-2 text-center">{t.appName}</h1>
-         <p className="text-indigo-200 mb-8 text-sm opacity-80">{t.syncNotice}</p>
-         
-         <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 text-gray-800 shadow-2xl">
-            {step === 'INPUT' && (
-              <div className="flex gap-4 mb-8 bg-gray-100 p-1 rounded-2xl">
-                  <button onClick={() => setMode('LOGIN')} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${mode === 'LOGIN' ? 'bg-white shadow-md text-indigo-600' : 'text-gray-400'}`}>
-                  <div className="flex items-center justify-center gap-2">
-                      <LogIn size={16}/> {language === 'ta' ? 'உள்நுழைய' : 'Login'}
-                  </div>
-                  </button>
-                  <button onClick={() => setMode('REGISTER')} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${mode === 'REGISTER' ? 'bg-white shadow-md text-indigo-600' : 'text-gray-400'}`}>
-                  <div className="flex items-center justify-center gap-2">
-                      <UserPlus size={16}/> {language === 'ta' ? 'பதிவு செய்ய' : 'Sign Up'}
-                  </div>
-                  </button>
-              </div>
-            )}
-  
-            {step === 'INPUT' ? (
-                <form onSubmit={mode === 'REGISTER' ? handleRegisterAttempt : handleLoginAttempt} className="space-y-4">
-                  {mode === 'REGISTER' ? (
-                      <>
-                      <div className="space-y-1">
-                          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">{language === 'ta' ? 'பெயர்' : 'Name'}</label>
-                          <div className="relative">
-                              <UserSimple className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
-                              <input value={name} onChange={e => setName(e.target.value)} className="w-full bg-gray-50 p-4 pl-12 rounded-2xl font-bold text-gray-700 outline-none focus:ring-2 focus:ring-indigo-100 transition" required />
-                          </div>
-                      </div>
-                      <div className="space-y-1">
-                          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">{t.mobile}</label>
-                          <div className="relative">
-                              <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
-                              <input type="tel" value={mobile} onChange={e => setMobile(e.target.value)} className="w-full bg-gray-50 p-4 pl-12 rounded-2xl font-bold text-gray-700 outline-none focus:ring-2 focus:ring-indigo-100 transition" required />
-                          </div>
-                      </div>
-                      <div className="space-y-1">
-                          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Email</label>
-                          <div className="relative">
-                          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
-                          <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-gray-50 p-4 pl-12 rounded-2xl font-bold text-gray-700 outline-none focus:ring-2 focus:ring-indigo-100 transition" required />
-                          </div>
-                      </div>
-                      </>
-                  ) : (
-                      <div className="space-y-1">
-                          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">{t.emailOrMobile}</label>
-                          <div className="relative">
-                              <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
-                              <input 
-                                  type="text" 
-                                  value={loginId} 
-                                  onChange={e => setLoginId(e.target.value)} 
-                                  className="w-full bg-gray-50 p-4 pl-12 rounded-2xl font-bold text-gray-700 outline-none focus:ring-2 focus:ring-indigo-100 transition" 
-                                  required 
-                              />
-                          </div>
-                      </div>
-                  )}
-                  
-                  <div className="space-y-1">
-                      <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">{language === 'ta' ? 'கடவுச்சொல்' : 'Password'}</label>
-                      <div className="relative">
-                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
-                      <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-gray-50 p-4 pl-12 pr-12 rounded-2xl font-bold text-gray-700 outline-none focus:ring-2 focus:ring-indigo-100 transition" required />
-                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
-                          {showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}
-                      </button>
-                      </div>
-                  </div>
-  
-                  <button className="w-full bg-indigo-600 text-white p-4 rounded-2xl font-black shadow-lg shadow-indigo-200 mt-6 active:scale-95 transition">
-                      {mode === 'LOGIN' ? (language === 'ta' ? 'உள்நுழைய' : 'Login') : t.sendOtp}
-                  </button>
-                </form>
-            ) : (
-               <form onSubmit={handleVerifyOtp} className="space-y-6 animate-in fade-in slide-in-from-right">
-                   <div className="text-center">
-                      <ShieldCheck size={48} className="mx-auto text-indigo-500 mb-2" />
-                      <h3 className="font-bold text-lg text-gray-800">{t.otp}</h3>
-                      <p className="text-xs text-gray-400">Sent to {mobile} / {email}</p>
-                   </div>
-                   
-                   {otpNotification && (
-                      <div className="bg-green-100 border border-green-200 text-green-800 p-3 rounded-xl mb-4 text-center animate-pulse">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-green-600 mb-1">{language === 'ta' ? 'உங்கள் OTP குறியீடு' : 'Your OTP Code'}</p>
-                          <p className="text-3xl font-black tracking-[0.2em]">{otpNotification}</p>
-                          <p className="text-[9px] text-green-500 mt-1">(Simulated for Demo)</p>
-                      </div>
-                   )}
-                   
-                   <div className="space-y-1">
-                      <input type="number" value={inputOtp} onChange={e => setInputOtp(e.target.value)} className="w-full bg-gray-50 p-4 text-center rounded-2xl font-black text-2xl tracking-widest text-gray-900 outline-none focus:ring-2 focus:ring-indigo-100 transition" placeholder="####" autoFocus required />
-                   </div>
-  
-                   <button className="w-full bg-indigo-600 text-white p-4 rounded-2xl font-black shadow-lg shadow-indigo-200 active:scale-95 transition">
-                       {t.verify}
-                   </button>
-                   <button type="button" onClick={handleCancelOtp} className="w-full text-gray-400 text-xs font-bold hover:text-gray-600 p-2">
                       {t.cancel}
                    </button>
                </form>
