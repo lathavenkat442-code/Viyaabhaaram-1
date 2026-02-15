@@ -1,5 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { supabase } from './supabase';
+
 import { StockItem, Transaction, User, TransactionType, SizeStock, StockVariant, StockHistory } from './types';
 import { TRANSLATIONS, CATEGORIES, PREDEFINED_COLORS, SHIRT_SIZES } from './constants';
 import Dashboard from './components/Dashboard';
