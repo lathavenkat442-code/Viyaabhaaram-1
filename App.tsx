@@ -83,7 +83,6 @@ const translations = {
   }
 };
 
-// --- Auth Component ---
 // --- Auth Component (With Forgot Password) ---
 const AuthScreen: React.FC<{ onLogin: (u: User) => void; language: 'ta' | 'en'; t: any }> = ({ onLogin, language, t }) => {
   const [mode, setMode] = useState<'LOGIN' | 'REGISTER' | 'FORGOT'>('LOGIN');
