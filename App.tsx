@@ -84,32 +84,161 @@ const translations = {
 };
 
 // --- Auth Component ---
+// --- Auth Component (With Forgot Password) ---
 const AuthScreen: React.FC<{ onLogin: (u: User) => void; language: 'ta' | 'en'; t: any }> = ({ onLogin, language, t }) => {
-  const [mode, setMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
+  const [mode, setMode] = useState<'LOGIN' | 'REGISTER' | 'FORGOT'>('LOGIN');
+  const [step, setStep] = useState<'VERIFY' | 'RESET'>('VERIFY'); // For Forgot Password steps
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleAuth = async (e: React.FormEvent) => {
+  // 1. Login Function
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      if (mode === 'REGISTER') {
-        const { data: existing } = await supabase.from('users').select('*').or(`email.eq.${email},mobile.eq.${mobile}`).single();
-        if (existing) throw new Error('User already exists');
-        const { error } = await supabase.from('users').insert([{ email, mobile, password, business_name: name }]);
-        if (error) throw error;
-        alert('Account Created!');
-        onLogin({ email, name, mobile, isLoggedIn: true, password });
+      const { data, error } = await supabase.from('users').select('*').or(`email.eq.${email},mobile.eq.${email}`).eq('password', password).single();
+      if (data) {
+        onLogin({ email: data.email, name: data.business_name, mobile: data.mobile, isLoggedIn: true, password: data.password });
       } else {
-        const { data, error } = await supabase.from('users').select('*').or(`email.eq.${email},mobile.eq.${email}`).eq('password', password).single();
-        if (data) onLogin({ email: data.email, name: data.business_name, mobile: data.mobile, isLoggedIn: true, password: data.password });
-        else alert('Invalid Credentials');
+        alert(language === 'ta' ? 'தவறான தகவல்கள்' : 'Invalid Credentials');
       }
-    } catch (err: any) { alert(err.message || 'Error'); } finally { setLoading(false); }
+    } catch (err) { alert('Login Error'); } finally { setLoading(false); }
   };
+
+  // 2. Register Function
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { data: existing } = await supabase.from('users').select('*').or(`email.eq.${email},mobile.eq.${mobile}`).single();
+      if (existing) throw new Error('User already exists');
+
+      const { error } = await supabase.from('users').insert([{ email, mobile, password, business_name: name }]);
+      if (error) throw error;
+      alert('Account Created!');
+      onLogin({ email, name, mobile, isLoggedIn: true, password });
+    } catch (err: any) { alert(err.message); } finally { setLoading(false); }
+  };
+
+  // 3. Forgot Password - Verify User
+  const handleVerifyUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      // Check if email AND mobile match
+      const { data } = await supabase.from('users').select('*').eq('email', email).eq('mobile', mobile).single();
+      if (data) {
+        setStep('RESET'); // Move to next step
+      } else {
+        alert(language === 'ta' ? 'தகவல்கள் பொருந்தவில்லை. சரியான ஈமெயில் மற்றும் மொபைல் எண்ணை உள்ளிடவும்.' : 'Details do not match our records.');
+      }
+    } catch (err) { alert('Error checking user'); } finally { setLoading(false); }
+  };
+
+  // 4. Forgot Password - Set New Password
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('users').update({ password: newPassword }).eq('email', email).eq('mobile', mobile);
+      if (!error) {
+        alert(language === 'ta' ? 'பாஸ்வேர்ட் மாற்றப்பட்டது! இப்போது லாகின் செய்யவும்.' : 'Password Reset Successful! Please Login.');
+        setMode('LOGIN');
+        setStep('VERIFY');
+        setPassword('');
+      } else {
+        throw error;
+      }
+    } catch (err) { alert('Error updating password'); } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="min-h-screen bg-indigo-600 flex flex-col items-center justify-center p-6 text-white">
+      <h1 className="text-4xl font-black mb-4">{t.appName}</h1>
+      <div className="bg-white text-gray-800 p-8 rounded-3xl w-full max-w-sm shadow-2xl animate-fade-in">
+        
+        {/* HEADER */}
+        <h2 className="text-xl font-bold mb-6 text-center">
+          {mode === 'LOGIN' && t.login}
+          {mode === 'REGISTER' && t.signUp}
+          {mode === 'FORGOT' && (step === 'VERIFY' ? 'Find Account' : 'Reset Password')}
+        </h2>
+
+        {/* --- LOGIN FORM --- */}
+        {mode === 'LOGIN' && (
+          <form onSubmit={handleLogin} className="space-y-4">
+            <input type="text" placeholder="Email / Mobile" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-4 bg-gray-100 rounded-xl font-bold outline-none focus:ring-2 focus:ring-indigo-500" required />
+            <div className="relative">
+              <input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-4 bg-gray-100 rounded-xl font-bold outline-none focus:ring-2 focus:ring-indigo-500" required />
+            </div>
+            <div className="text-right">
+              <button type="button" onClick={() => {setMode('FORGOT'); setStep('VERIFY'); setEmail(''); setMobile('');}} className="text-sm text-indigo-500 font-bold hover:text-indigo-700">
+                {language === 'ta' ? 'பாஸ்வேர்ட் மறந்துவிட்டதா?' : 'Forgot Password?'}
+              </button>
+            </div>
+            <button disabled={loading} className="w-full bg-indigo-600 text-white p-4 rounded-xl font-bold shadow-lg shadow-indigo-200">
+              {loading ? 'Logging in...' : t.login}
+            </button>
+          </form>
+        )}
+
+        {/* --- REGISTER FORM --- */}
+        {mode === 'REGISTER' && (
+          <form onSubmit={handleRegister} className="space-y-4">
+            <input type="text" placeholder="Business Name" value={name} onChange={e=>setName(e.target.value)} className="w-full p-4 bg-gray-100 rounded-xl font-bold outline-none" required />
+            <input type="text" placeholder="Mobile" value={mobile} onChange={e=>setMobile(e.target.value)} className="w-full p-4 bg-gray-100 rounded-xl font-bold outline-none" required />
+            <input type="text" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-4 bg-gray-100 rounded-xl font-bold outline-none" required />
+            <input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-4 bg-gray-100 rounded-xl font-bold outline-none" required />
+            <button disabled={loading} className="w-full bg-green-600 text-white p-4 rounded-xl font-bold shadow-lg">
+              {loading ? 'Creating...' : t.signUp}
+            </button>
+          </form>
+        )}
+
+        {/* --- FORGOT PASSWORD FLOW --- */}
+        {mode === 'FORGOT' && (
+          <div className="space-y-4">
+            {step === 'VERIFY' ? (
+              <form onSubmit={handleVerifyUser} className="space-y-4">
+                <p className="text-xs text-gray-500 text-center mb-2">
+                  {language === 'ta' ? 'பாஸ்வேர்டை மாற்ற உங்கள் பதிவு செய்யப்பட்ட மொபைல் மற்றும் ஈமெயிலை உள்ளிடவும்.' : 'Enter your registered Mobile & Email to reset password.'}
+                </p>
+                <input type="text" placeholder="Registered Mobile" value={mobile} onChange={e=>setMobile(e.target.value)} className="w-full p-4 bg-gray-100 rounded-xl font-bold outline-none" required />
+                <input type="text" placeholder="Registered Email" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-4 bg-gray-100 rounded-xl font-bold outline-none" required />
+                <button disabled={loading} className="w-full bg-orange-500 text-white p-4 rounded-xl font-bold shadow-lg">
+                  {loading ? 'Checking...' : 'Verify Details'}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleResetPassword} className="space-y-4">
+                 <p className="text-xs text-green-600 text-center font-bold mb-2">Verified! Set new password.</p>
+                 <input type="password" placeholder="New Password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} className="w-full p-4 bg-gray-100 rounded-xl font-bold outline-none focus:ring-2 focus:ring-green-500" required />
+                 <button disabled={loading} className="w-full bg-green-600 text-white p-4 rounded-xl font-bold shadow-lg">
+                  {loading ? 'Updating...' : 'Update Password'}
+                </button>
+              </form>
+            )}
+          </div>
+        )}
+
+        {/* FOOTER SWITCH */}
+        <div className="mt-6 text-center border-t border-gray-100 pt-4">
+          {mode === 'LOGIN' ? (
+            <button onClick={() => setMode('REGISTER')} className="text-indigo-600 font-bold text-sm">Create New Account</button>
+          ) : (
+            <button onClick={() => {setMode('LOGIN'); setStep('VERIFY');}} className="text-gray-400 font-bold text-sm">Back to Login</button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
   return (
     <div className="min-h-screen bg-indigo-600 flex flex-col items-center justify-center p-6 text-white">
@@ -126,17 +255,7 @@ const AuthScreen: React.FC<{ onLogin: (u: User) => void; language: 'ta' | 'en'; 
           <input type="text" placeholder="Email / Mobile" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-3 bg-gray-100 rounded-xl" required />
           <input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-3 bg-gray-100 rounded-xl" required />
           <button disabled={loading} className="w-full bg-indigo-600 text-white p-3 rounded-xl font-bold shadow-lg">
-            {loading ? '...' : (mode === 'LOGIN' ? t.login : t.signUp)}
-          </button>
-        </form>
-        <button onClick={() => setMode(mode === 'LOGIN' ? 'REGISTER' : 'LOGIN')} className="w-full mt-4 text-sm text-indigo-600 font-bold">
-          {mode === 'LOGIN' ? 'Create New Account' : 'Back to Login'}
-        </button>
-      </div>
-    </div>
-  );
-};
-
+            {loading ? '...' : (mode === 'LOGIN' ? t.login : t
 // --- Main App ---
 function App() {
   const [user, setUser] = useState<User | null>(null);
