@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
-import { ShoppingCart, Plus, Trash2, Languages, LogOut, BarChart3, Package, History, ArrowUpRight, ArrowDownLeft, Search, Camera, Upload, Calendar, X } from 'lucide-react';
+import { ShoppingCart, Plus, Trash2, Languages, LogOut, BarChart3, Package, History, ArrowUpRight, ArrowDownLeft, Search, Camera, Calendar, X } from 'lucide-react';
 
 // --- Types ---
 interface User {
@@ -70,7 +70,7 @@ const translations = {
     stock: 'இருப்பு',
     category: 'வகை',
     image: 'பொருள் புகைப்படம்',
-    sizes: 'அளவுகள் (எ.கா: S, M, L)',
+    sizes: 'அளவுகள் (எ.கா: S, M, L, XL, XXL)',
     colors: 'நிறங்கள் (எ.கா: சிவப்பு)',
     add: 'சேமி',
     totalValue: 'மொத்த மதிப்பு',
@@ -100,6 +100,7 @@ const AuthScreen: React.FC<{ onLogin: (u: User) => void; language: 'ta' | 'en'; 
     e.preventDefault();
     setLoading(true);
     try {
+      // @ts-ignore
       const { data, error } = await supabase.from('users').select('*').or(`email.eq.${email},mobile.eq.${email}`).eq('password', password).single();
       if (data) {
         onLogin({ email: data.email, name: data.business_name, mobile: data.mobile, isLoggedIn: true, password: data.password });
@@ -114,6 +115,7 @@ const AuthScreen: React.FC<{ onLogin: (u: User) => void; language: 'ta' | 'en'; 
     e.preventDefault();
     setLoading(true);
     try {
+      // @ts-ignore
       const { data: existing } = await supabase.from('users').select('*').or(`email.eq.${email},mobile.eq.${mobile}`).single();
       if (existing) throw new Error('User already exists');
 
@@ -129,6 +131,7 @@ const AuthScreen: React.FC<{ onLogin: (u: User) => void; language: 'ta' | 'en'; 
     e.preventDefault();
     setLoading(true);
     try {
+      // @ts-ignore
       const { data } = await supabase.from('users').select('*').eq('email', email).eq('mobile', mobile).single();
       if (data) setStep('RESET');
       else alert(language === 'ta' ? 'தகவல்கள் பொருந்தவில்லை.' : 'Details do not match.');
@@ -151,7 +154,7 @@ const AuthScreen: React.FC<{ onLogin: (u: User) => void; language: 'ta' | 'en'; 
   return (
     <div className="min-h-screen bg-indigo-600 flex flex-col items-center justify-center p-6 text-white">
       <h1 className="text-4xl font-black mb-4">{t.appName}</h1>
-      <div className="bg-white text-gray-800 p-8 rounded-3xl w-full max-w-sm shadow-2xl animate-fade-in">
+      <div className="bg-white text-gray-800 p-8 rounded-3xl w-full max-w-sm shadow-2xl">
         <h2 className="text-xl font-bold mb-6 text-center">
           {mode === 'LOGIN' && t.login}
           {mode === 'REGISTER' && t.signUp}
@@ -221,7 +224,6 @@ function App() {
   const [items, setItems] = useState<Item[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   
-  // Item Form State
   const [newItemName, setNewItemName] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
   const [newItemStock, setNewItemStock] = useState('');
@@ -230,7 +232,6 @@ function App() {
   const [newItemImage, setNewItemImage] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
 
-  // Billing State
   const [cart, setCart] = useState<{item: Item, qty: number}[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -240,9 +241,11 @@ function App() {
   useEffect(() => {
     const loadData = async () => {
       if (user?.email) {
+        // @ts-ignore
         const { data: itemsData } = await supabase.from('items').select('*').eq('user_email', user.email).order('created_at', { ascending: false });
         if (itemsData) setItems(itemsData);
 
+        // @ts-ignore
         const { data: transData } = await supabase.from('transactions').select('*').eq('user_email', user.email).order('date', { ascending: false });
         if (transData) setTransactions(transData);
       }
@@ -319,7 +322,6 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 font-sans">
-      {/* Header */}
       <header className="bg-indigo-600 text-white p-6 rounded-b-[2rem] shadow-xl sticky top-0 z-20">
         <div className="flex justify-between items-center mb-2">
           <div>
@@ -392,7 +394,7 @@ function App() {
             </button>
 
             {showAddForm && (
-              <div className="bg-white p-5 rounded-3xl shadow-lg border border-indigo-50 space-y-3 animate-fade-in">
+              <div className="bg-white p-5 rounded-3xl shadow-lg border border-indigo-50 space-y-3">
                 <div className="flex justify-center mb-2">
                   <label className="w-24 h-24 bg-gray-100 rounded-2xl flex flex-col items-center justify-center cursor-pointer border-2 border-dashed border-gray-300 overflow-hidden relative">
                     {newItemImage ? <img src={newItemImage} className="w-full h-full object-cover" /> : <Camera className="text-gray-400" />}
@@ -430,4 +432,4 @@ function App() {
                     </div>
                   </div>
                 </div>
-              )
+            
