@@ -17,9 +17,9 @@ interface Item {
   price: number;
   stock: number;
   category: string;
-  image?: string;   // போட்டோ
-  sizes?: string;   // அளவுகள் (S, M, L)
-  colors?: string;  // நிறங்கள்
+  image?: string;
+  sizes?: string;
+  colors?: string;
   description?: string;
   created_at?: string;
 }
@@ -86,7 +86,7 @@ const translations = {
 // --- Auth Component (With Forgot Password) ---
 const AuthScreen: React.FC<{ onLogin: (u: User) => void; language: 'ta' | 'en'; t: any }> = ({ onLogin, language, t }) => {
   const [mode, setMode] = useState<'LOGIN' | 'REGISTER' | 'FORGOT'>('LOGIN');
-  const [step, setStep] = useState<'VERIFY' | 'RESET'>('VERIFY'); // For Forgot Password steps
+  const [step, setStep] = useState<'VERIFY' | 'RESET'>('VERIFY');
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -95,7 +95,7 @@ const AuthScreen: React.FC<{ onLogin: (u: User) => void; language: 'ta' | 'en'; 
   const [newPassword, setNewPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // 1. Login Function
+  // Login
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -109,7 +109,7 @@ const AuthScreen: React.FC<{ onLogin: (u: User) => void; language: 'ta' | 'en'; 
     } catch (err) { alert('Login Error'); } finally { setLoading(false); }
   };
 
-  // 2. Register Function
+  // Register
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -124,35 +124,27 @@ const AuthScreen: React.FC<{ onLogin: (u: User) => void; language: 'ta' | 'en'; 
     } catch (err: any) { alert(err.message); } finally { setLoading(false); }
   };
 
-  // 3. Forgot Password - Verify User
+  // Forgot Password - Verify
   const handleVerifyUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      // Check if email AND mobile match
       const { data } = await supabase.from('users').select('*').eq('email', email).eq('mobile', mobile).single();
-      if (data) {
-        setStep('RESET'); // Move to next step
-      } else {
-        alert(language === 'ta' ? 'தகவல்கள் பொருந்தவில்லை. சரியான ஈமெயில் மற்றும் மொபைல் எண்ணை உள்ளிடவும்.' : 'Details do not match our records.');
-      }
+      if (data) setStep('RESET');
+      else alert(language === 'ta' ? 'தகவல்கள் பொருந்தவில்லை.' : 'Details do not match.');
     } catch (err) { alert('Error checking user'); } finally { setLoading(false); }
   };
 
-  // 4. Forgot Password - Set New Password
+  // Forgot Password - Reset
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       const { error } = await supabase.from('users').update({ password: newPassword }).eq('email', email).eq('mobile', mobile);
       if (!error) {
-        alert(language === 'ta' ? 'பாஸ்வேர்ட் மாற்றப்பட்டது! இப்போது லாகின் செய்யவும்.' : 'Password Reset Successful! Please Login.');
-        setMode('LOGIN');
-        setStep('VERIFY');
-        setPassword('');
-      } else {
-        throw error;
-      }
+        alert(language === 'ta' ? 'பாஸ்வேர்ட் மாற்றப்பட்டது!' : 'Password Reset Successful!');
+        setMode('LOGIN'); setStep('VERIFY'); setPassword('');
+      } else throw error;
     } catch (err) { alert('Error updating password'); } finally { setLoading(false); }
   };
 
@@ -160,33 +152,27 @@ const AuthScreen: React.FC<{ onLogin: (u: User) => void; language: 'ta' | 'en'; 
     <div className="min-h-screen bg-indigo-600 flex flex-col items-center justify-center p-6 text-white">
       <h1 className="text-4xl font-black mb-4">{t.appName}</h1>
       <div className="bg-white text-gray-800 p-8 rounded-3xl w-full max-w-sm shadow-2xl animate-fade-in">
-        
-        {/* HEADER */}
         <h2 className="text-xl font-bold mb-6 text-center">
           {mode === 'LOGIN' && t.login}
           {mode === 'REGISTER' && t.signUp}
           {mode === 'FORGOT' && (step === 'VERIFY' ? 'Find Account' : 'Reset Password')}
         </h2>
 
-        {/* --- LOGIN FORM --- */}
         {mode === 'LOGIN' && (
           <form onSubmit={handleLogin} className="space-y-4">
-            <input type="text" placeholder="Email / Mobile" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-4 bg-gray-100 rounded-xl font-bold outline-none focus:ring-2 focus:ring-indigo-500" required />
-            <div className="relative">
-              <input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-4 bg-gray-100 rounded-xl font-bold outline-none focus:ring-2 focus:ring-indigo-500" required />
-            </div>
+            <input type="text" placeholder="Email / Mobile" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-4 bg-gray-100 rounded-xl font-bold outline-none" required />
+            <input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-4 bg-gray-100 rounded-xl font-bold outline-none" required />
             <div className="text-right">
               <button type="button" onClick={() => {setMode('FORGOT'); setStep('VERIFY'); setEmail(''); setMobile('');}} className="text-sm text-indigo-500 font-bold hover:text-indigo-700">
                 {language === 'ta' ? 'பாஸ்வேர்ட் மறந்துவிட்டதா?' : 'Forgot Password?'}
               </button>
             </div>
-            <button disabled={loading} className="w-full bg-indigo-600 text-white p-4 rounded-xl font-bold shadow-lg shadow-indigo-200">
+            <button disabled={loading} className="w-full bg-indigo-600 text-white p-4 rounded-xl font-bold shadow-lg">
               {loading ? 'Logging in...' : t.login}
             </button>
           </form>
         )}
 
-        {/* --- REGISTER FORM --- */}
         {mode === 'REGISTER' && (
           <form onSubmit={handleRegister} className="space-y-4">
             <input type="text" placeholder="Business Name" value={name} onChange={e=>setName(e.target.value)} className="w-full p-4 bg-gray-100 rounded-xl font-bold outline-none" required />
@@ -199,62 +185,34 @@ const AuthScreen: React.FC<{ onLogin: (u: User) => void; language: 'ta' | 'en'; 
           </form>
         )}
 
-        {/* --- FORGOT PASSWORD FLOW --- */}
         {mode === 'FORGOT' && (
           <div className="space-y-4">
             {step === 'VERIFY' ? (
               <form onSubmit={handleVerifyUser} className="space-y-4">
-                <p className="text-xs text-gray-500 text-center mb-2">
-                  {language === 'ta' ? 'பாஸ்வேர்டை மாற்ற உங்கள் பதிவு செய்யப்பட்ட மொபைல் மற்றும் ஈமெயிலை உள்ளிடவும்.' : 'Enter your registered Mobile & Email to reset password.'}
-                </p>
-                <input type="text" placeholder="Registered Mobile" value={mobile} onChange={e=>setMobile(e.target.value)} className="w-full p-4 bg-gray-100 rounded-xl font-bold outline-none" required />
-                <input type="text" placeholder="Registered Email" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-4 bg-gray-100 rounded-xl font-bold outline-none" required />
-                <button disabled={loading} className="w-full bg-orange-500 text-white p-4 rounded-xl font-bold shadow-lg">
-                  {loading ? 'Checking...' : 'Verify Details'}
-                </button>
+                <p className="text-xs text-gray-500 text-center mb-2">Enter Registered Mobile & Email</p>
+                <input type="text" placeholder="Mobile" value={mobile} onChange={e=>setMobile(e.target.value)} className="w-full p-4 bg-gray-100 rounded-xl font-bold outline-none" required />
+                <input type="text" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-4 bg-gray-100 rounded-xl font-bold outline-none" required />
+                <button disabled={loading} className="w-full bg-orange-500 text-white p-4 rounded-xl font-bold shadow-lg">Verify</button>
               </form>
             ) : (
               <form onSubmit={handleResetPassword} className="space-y-4">
-                 <p className="text-xs text-green-600 text-center font-bold mb-2">Verified! Set new password.</p>
-                 <input type="password" placeholder="New Password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} className="w-full p-4 bg-gray-100 rounded-xl font-bold outline-none focus:ring-2 focus:ring-green-500" required />
-                 <button disabled={loading} className="w-full bg-green-600 text-white p-4 rounded-xl font-bold shadow-lg">
-                  {loading ? 'Updating...' : 'Update Password'}
-                </button>
+                 <input type="password" placeholder="New Password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} className="w-full p-4 bg-gray-100 rounded-xl font-bold outline-none" required />
+                 <button disabled={loading} className="w-full bg-green-600 text-white p-4 rounded-xl font-bold shadow-lg">Update Password</button>
               </form>
             )}
           </div>
         )}
 
-        {/* FOOTER SWITCH */}
         <div className="mt-6 text-center border-t border-gray-100 pt-4">
-          {mode === 'LOGIN' ? (
-            <button onClick={() => setMode('REGISTER')} className="text-indigo-600 font-bold text-sm">Create New Account</button>
-          ) : (
-            <button onClick={() => {setMode('LOGIN'); setStep('VERIFY');}} className="text-gray-400 font-bold text-sm">Back to Login</button>
-          )}
+          <button onClick={() => {setMode(mode === 'LOGIN' ? 'REGISTER' : 'LOGIN'); setStep('VERIFY');}} className="text-indigo-600 font-bold text-sm">
+            {mode === 'LOGIN' ? 'Create New Account' : 'Back to Login'}
+          </button>
         </div>
       </div>
     </div>
   );
 };
 
-
-  return (
-    <div className="min-h-screen bg-indigo-600 flex flex-col items-center justify-center p-6 text-white">
-      <h1 className="text-4xl font-black mb-4">{t.appName}</h1>
-      <div className="bg-white text-gray-800 p-8 rounded-3xl w-full max-w-sm shadow-2xl">
-        <h2 className="text-xl font-bold mb-6 text-center">{mode === 'LOGIN' ? t.login : t.signUp}</h2>
-        <form onSubmit={handleAuth} className="space-y-4">
-          {mode === 'REGISTER' && (
-            <>
-              <input type="text" placeholder="Business Name" value={name} onChange={e=>setName(e.target.value)} className="w-full p-3 bg-gray-100 rounded-xl" required />
-              <input type="text" placeholder="Mobile" value={mobile} onChange={e=>setMobile(e.target.value)} className="w-full p-3 bg-gray-100 rounded-xl" required />
-            </>
-          )}
-          <input type="text" placeholder="Email / Mobile" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-3 bg-gray-100 rounded-xl" required />
-          <input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-3 bg-gray-100 rounded-xl" required />
-          <button disabled={loading} className="w-full bg-indigo-600 text-white p-3 rounded-xl font-bold shadow-lg">
-            {loading ? '...' : (mode === 'LOGIN' ? t.login : t
 // --- Main App ---
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -292,22 +250,18 @@ function App() {
     if (user) loadData();
   }, [user]);
 
-  // Handle Image Upload (Convert to Base64 String)
+  // Handle Image Upload
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 1000000) { // Limit 1MB
-        alert('Image too large (Max 1MB)'); return;
-      }
+      if (file.size > 1000000) { alert('Image too large (Max 1MB)'); return; }
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setNewItemImage(reader.result as string);
-      };
+      reader.onloadend = () => setNewItemImage(reader.result as string);
       reader.readAsDataURL(file);
     }
   };
 
-  // Add Item to Supabase
+  // Add Item
   const handleAddItem = async () => {
     if (!newItemName || !newItemPrice || !user) return;
     const itemPayload = {
@@ -324,7 +278,6 @@ function App() {
     const { data, error } = await supabase.from('items').insert([itemPayload]).select();
     if (!error && data) {
       setItems([data[0], ...items]);
-      // Reset Form
       setNewItemName(''); setNewItemPrice(''); setNewItemStock(''); 
       setNewItemSizes(''); setNewItemColors(''); setNewItemImage('');
       setShowAddForm(false);
@@ -349,12 +302,10 @@ function App() {
     const { data: transData, error } = await supabase.from('transactions').insert([transPayload]).select();
 
     if (!error && transData) {
-      // Update Stock locally (Optimistic update)
       const newItems = [...items];
       for (const c of cart) {
         const idx = newItems.findIndex(i => i.id === c.item.id);
         if (idx > -1) newItems[idx].stock -= c.qty;
-        // Also update Supabase background
         await supabase.from('items').update({ stock: newItems[idx].stock }).eq('id', c.item.id);
       }
       setItems(newItems);
@@ -380,7 +331,6 @@ function App() {
           </button>
         </div>
         
-        {/* Total Stats */}
         {activeTab === 'dashboard' && (
           <div className="bg-white/10 p-4 rounded-2xl backdrop-blur-sm mt-2 flex justify-between items-center">
             <div>
@@ -393,7 +343,7 @@ function App() {
       </header>
 
       <main className="p-4">
-        {/* DASHBOARD & HISTORY */}
+        {/* DASHBOARD */}
         {activeTab === 'dashboard' && (
           <div className="space-y-4">
             <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
@@ -418,7 +368,6 @@ function App() {
                        {tr.type === 'SALE' ? '+' : '-'} ₹{tr.amount}
                      </span>
                    </div>
-                   {/* Bill Items Details */}
                    {tr.items_data && (
                      <div className="bg-gray-50 p-2 rounded-lg text-xs text-gray-600 space-y-1">
                        {tr.items_data.map((i: any, idx: number) => (
@@ -435,26 +384,21 @@ function App() {
           </div>
         )}
 
-        {/* INVENTORY TAB */}
+        {/* INVENTORY */}
         {activeTab === 'inventory' && (
           <div className="space-y-4">
-            {/* Add Button */}
             <button onClick={() => setShowAddForm(!showAddForm)} className="w-full bg-indigo-600 text-white p-3 rounded-2xl font-bold flex justify-center items-center gap-2 shadow-lg">
-              {showAddForm ? <X size={20} /> : <Plus size={20} />}
-              {showAddForm ? 'Close Form' : t.addItem}
+              {showAddForm ? <X size={20} /> : <Plus size={20} />} {showAddForm ? 'Close' : t.addItem}
             </button>
 
-            {/* Add Item Form */}
             {showAddForm && (
               <div className="bg-white p-5 rounded-3xl shadow-lg border border-indigo-50 space-y-3 animate-fade-in">
-                {/* Image Upload */}
                 <div className="flex justify-center mb-2">
                   <label className="w-24 h-24 bg-gray-100 rounded-2xl flex flex-col items-center justify-center cursor-pointer border-2 border-dashed border-gray-300 overflow-hidden relative">
                     {newItemImage ? <img src={newItemImage} className="w-full h-full object-cover" /> : <Camera className="text-gray-400" />}
                     <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                   </label>
                 </div>
-                
                 <input placeholder={t.itemName} value={newItemName} onChange={e => setNewItemName(e.target.value)} className="w-full bg-gray-50 p-3 rounded-xl outline-none" />
                 <div className="flex gap-2">
                   <input type="number" placeholder={t.price} value={newItemPrice} onChange={e => setNewItemPrice(e.target.value)} className="w-1/2 bg-gray-50 p-3 rounded-xl outline-none" />
@@ -468,7 +412,6 @@ function App() {
               </div>
             )}
 
-            {/* Items List */}
             <div className="grid gap-3">
               {items.map(item => (
                 <div key={item.id} className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex gap-4">
@@ -478,69 +421,13 @@ function App() {
                   <div className="flex-1">
                     <div className="flex justify-between items-start">
                       <h4 className="font-bold text-gray-800 text-lg">{item.name}</h4>
-                      <button onClick={() => {/* Delete logic needs supabase delete */}} className="text-gray-300 hover:text-red-500"><Trash2 size={18} /></button>
+                      <button onClick={() => {/* Delete */}} className="text-gray-300 hover:text-red-500"><Trash2 size={18} /></button>
                     </div>
                     <p className="text-green-600 font-bold">₹{item.price}</p>
                     <div className="flex gap-2 mt-1 text-xs text-gray-500">
-                      <span className="bg-gray-100 px-2 py-1 rounded-md">Stock: {item.stock}</span>
+                      <span className="bg-gray-100 px-2 py-1 rounded-md">Qty: {item.stock}</span>
                       {item.sizes && <span className="bg-gray-100 px-2 py-1 rounded-md">{item.sizes}</span>}
-                      {item.colors && <span className="bg-gray-100 px-2 py-1 rounded-md">{item.colors}</span>}
                     </div>
-                    {item.created_at && <p className="text-[10px] text-gray-400 mt-1">Added: {new Date(item.created_at).toLocaleDateString()}</p>}
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* BILLING TAB */}
-        {activeTab === 'billing' && (
-          <div className="space-y-4">
-             <div className="relative">
-               <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-               <input placeholder="Search items..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-white p-3 pl-10 rounded-xl shadow-sm outline-none" />
-             </div>
-
-             <div className="h-64 overflow-y-auto space-y-2 pb-10">
-               {items.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase())).map(item => (
-                 <div key={item.id} onClick={() => {
-                   const existing = cart.find(c => c.item.id === item.id);
-                   if (existing && existing.qty >= item.stock) { alert('Stock Empty'); return; }
-                   setCart(prev => {
-                     const exist = prev.find(c => c.item.id === item.id);
-                     return exist ? prev.map(c => c.item.id === item.id ? {...c, qty: c.qty+1} : c) : [...prev, {item, qty:1}];
-                   });
-                 }} className="bg-white p-3 rounded-xl flex items-center gap-3 border border-gray-100 active:bg-indigo-50 cursor-pointer">
-                    <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden">
-                      {item.image ? <img src={item.image} className="w-full h-full object-cover" /> : <Package className="p-2 text-gray-300" />}
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-bold text-gray-700">{item.name}</h4>
-                      <p className="text-xs text-gray-500">Stock: {item.stock}</p>
-                    </div>
-                    <span className="font-bold text-green-700">₹{item.price}</span>
-                 </div>
-               ))}
-             </div>
-
-             {/* Cart Summary */}
-             {cart.length > 0 && (
-               <div className="fixed bottom-24 left-4 right-4 bg-white p-5 rounded-3xl shadow-2xl border border-indigo-100 animate-slide-up">
-                 <div className="flex justify-between items-center mb-4">
-                   <h3 className="font-bold text-gray-800">{t.newBill} ({cart.length})</h3>
-                   <button onClick={() => setCart([])} className="text-red-500 text-xs font-bold">Clear</button>
-                 </div>
-                 <div className="max-h-32 overflow-y-auto mb-4 text-sm space-y-2">
-                   {cart.map((c, idx) => (
-                     <div key={idx} className="flex justify-between">
-                       <span>{c.item.name} x {c.qty}</span>
-                       <span className="font-bold">₹{c.item.price * c.qty}</span>
-                     </div>
-                   ))}
-                 </div>
-                 <div className="flex justify-between items-center border-t pt-3 mb-4">
-                   <span className="text-gray-500 font-bold">Total</span>
-                   <span className="text-2xl font-black text-indigo-600">₹{cart.reduce((sum, i) => sum + (i.item.price * i.qty), 0)}</span>
-                 </div>
-                 <button onClick={handleCheckout} className="w-full bg-indigo-600 text-white p-4 rounded-xl font-bold shadow-lg active:scale-95
+              )
